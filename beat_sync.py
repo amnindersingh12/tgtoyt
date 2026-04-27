@@ -43,15 +43,27 @@ def main():
         logger.log_download_start(args.audio, temp_dir)
         print(f"🎵 Downloading audio from {args.audio}...")
         audio_path = os.path.join(temp_dir, "audio.mp3")
-        subprocess.run([
-            "yt-dlp", "--force-ipv4", "--ignore-errors",
-            "--no-continue", "--no-overwrites",
-            "--limit-rate", "4000k",
-            "--sleep-requests", "1.2", "--sleep-interval", "2",
-            "--max-sleep-interval", "6",
+        
+        # Try a more robust yt-dlp command to bypass bot detection
+        yt_cmd = [
+            "yt-dlp", 
+            "--force-ipv4", 
+            "--ignore-errors",
+            "--no-continue", 
+            "--no-overwrites",
+            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "--extractor-args", "youtube:player_client=mweb,tv,ios",
             "-x", "--audio-format", "mp3",
             "-o", audio_path, args.audio
-        ], check=True)
+        ]
+        
+        # Use cookies if available
+        if os.path.exists("cookies.txt"):
+            print("🍪 Using cookies.txt for YouTube download...")
+            yt_cmd.insert(1, "--cookies")
+            yt_cmd.insert(2, "cookies.txt")
+            
+        subprocess.run(yt_cmd, check=True)
 
         # 2. Analyze Beats
         print("🥁 Detecting beats...")
@@ -217,6 +229,8 @@ def main():
     except Exception as e:
         logger.log_processing_error("beat_sync", "Main Process", str(e))
         print(f"❌ Error: {e}")
+        import sys
+        sys.exit(1)
     finally:
         print("🧹 Cleaning up...")
         shutil.rmtree(temp_dir, ignore_errors=True)
