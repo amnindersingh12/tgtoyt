@@ -141,9 +141,9 @@ def process_standalone_video(channel_id, msg_id, caption):
                 with open(caption_path, "w") as f:
                     f.write(caption)
 
-            # Viralize with enhanced processing
-            print(f"🪄 Viralizing video {msg_id} with advanced effects...")
-            send_telegram_status(f"🪄 **Viralizing Video...**\nApplying 4K upscale & filters for `{msg_id}`")
+            # Viralize — single fast pass (1080x1920 + viral filters)
+            print(f"🪄 Viralizing video {msg_id}...")
+            send_telegram_status(f"🪄 **Processing Video...**\nApplying viral effects to `{msg_id}`")
             subprocess.run([
                 "uv", "run", "viralize_video.py",
                 "--input", raw_path,
