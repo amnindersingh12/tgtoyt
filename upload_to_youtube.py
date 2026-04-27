@@ -27,7 +27,7 @@ LOG_FILE = "processed_videos.txt"
 CURIOSITY_HOOKS = [
     "Nobody expected this ending...",
     "Wait for the last second 😱",
-    "I still can't believe this happened",
+    "I still cannot believe this happened",
     "This is the one everyone's talking about",
     "You've never seen anything like this",
     "The twist at the end broke me 💀",
@@ -47,7 +47,7 @@ EMOTION_HOOKS = [
     "Absolutely mesmerizing",
     "The beauty in this is unreal",
     "This made my day 💫",
-    "I can't stop watching this",
+    "I cannot stop watching this",
     "The most satisfying thing you'll see today",
 ]
 

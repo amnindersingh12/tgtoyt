@@ -150,6 +150,23 @@ def process_standalone_video(channel_id, msg_id, caption):
                 "--output", viral_path
             ], check=True)
 
+            # 4K Upscale — crystal clear before upload
+            upscale_path = os.path.join(OUTPUT_DIR, f"video_{msg_id}_4k.mp4")
+            print(f"📐 Upscaling to 4K...")
+            send_telegram_status(f"📐 **Upscaling to 4K...**\nCrystal clear render for `{msg_id}`")
+            subprocess.run([
+                "ffmpeg", "-y", "-i", viral_path,
+                "-vf", "scale=2160:3840:flags=lanczos,unsharp=5:5:0.8:5:5:0.0",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+                "-c:a", "copy",
+                "-pix_fmt", "yuv420p", "-threads", "0",
+                "-movflags", "+faststart",
+                upscale_path
+            ], check=True, capture_output=True, text=True)
+            # Replace 1080p with 4K version
+            os.replace(upscale_path, viral_path)
+            print(f"✅ 4K upscale done!")
+
             # Upload to YouTube
             print(f"📤 Uploading to YouTube...")
             logger.log_upload_start(viral_path, "YouTube")

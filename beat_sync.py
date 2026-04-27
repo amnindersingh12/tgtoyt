@@ -12,12 +12,18 @@ from logger import get_logger
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 OPENING_HOOKS = [
-    "WAIT FOR IT... !!", "WATCH TILL THE END !!", "DON'T SKIP THIS !!",
-    "WATCH THIS >>", "WAIT FOR THE DROP !!", "THIS IS INSANE !!",
+    "WAIT FOR IT...", "WATCH TILL THE END", "DONT SKIP THIS",
+    "WATCH THIS NOW", "WAIT FOR THE DROP", "THIS IS INSANE",
 ]
 ENDING_CTAS = [
     "SUBSCRIBE", "FOLLOW FOR MORE", "HIT SUBSCRIBE",
 ]
+
+
+def _safe_text(text):
+    """Strip any characters that break FFmpeg filter quoting."""
+    return text.replace("'", "").replace('"', "").replace("&", "AND")
+
 
 
 def main():
@@ -174,8 +180,8 @@ def main():
                 cf.write(f"file '{os.path.abspath(clip)}'\n")
 
         # 6. Add text overlays info
-        opening = random.choice(OPENING_HOOKS)
-        ending = random.choice(ENDING_CTAS)
+        opening = _safe_text(random.choice(OPENING_HOOKS))
+        ending = _safe_text(random.choice(ENDING_CTAS))
         end_start = max(total_duration - 3.0, total_duration * 0.7)
 
         # 7. Stitch + audio + text overlays (hard cuts — no crossfade)

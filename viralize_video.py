@@ -14,18 +14,23 @@ except ImportError:
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 OPENING_HOOKS = [
-    "WAIT FOR IT... !!", "WATCH TILL THE END !!", "DON'T SKIP THIS !!",
-    "WATCH THIS >>", "WAIT FOR THE DROP !!", "KEEP WATCHING... !!",
-    "THIS IS INSANE !!", "POV: YOU FOUND GOLD !!",
+    "WAIT FOR IT...", "WATCH TILL THE END", "DONT SKIP THIS",
+    "WATCH THIS NOW", "WAIT FOR THE DROP", "KEEP WATCHING...",
+    "THIS IS INSANE", "YOU FOUND GOLD",
 ]
 MIDDLE_PROMPTS = [
-    "LIKE IF YOU AGREE !!", "DOUBLE TAP !!", "TAG SOMEONE >>",
-    "SHARE THIS NOW !!", "SAVE FOR LATER !!", "THIS IS EVERYTHING !!",
+    "LIKE IF YOU AGREE", "DOUBLE TAP NOW", "TAG SOMEONE",
+    "SHARE THIS NOW", "SAVE FOR LATER", "THIS IS EVERYTHING",
 ]
 ENDING_CTAS = [
     "SUBSCRIBE", "FOLLOW FOR MORE", "SUBSCRIBE FOR DAILY",
-    "HIT SUBSCRIBE", "MORE ON MY CHANNEL", "FOLLOW & SUBSCRIBE",
+    "HIT SUBSCRIBE", "MORE ON MY CHANNEL", "FOLLOW AND SUBSCRIBE",
 ]
+
+
+def _safe_text(text):
+    """Strip any characters that break FFmpeg filter quoting."""
+    return text.replace("'", "").replace('"', "").replace("&", "AND")
 
 
 def get_video_info(video):
@@ -65,12 +70,13 @@ def detect_bpm(video_path):
 
 
 def build_text_overlays(duration):
-    opening = random.choice(OPENING_HOOKS)
-    middle = random.choice(MIDDLE_PROMPTS)
-    ending = random.choice(ENDING_CTAS)
+    opening = _safe_text(random.choice(OPENING_HOOKS))
+    middle = _safe_text(random.choice(MIDDLE_PROMPTS))
+    ending = _safe_text(random.choice(ENDING_CTAS))
     mid_s = duration * 0.4
     mid_e = mid_s + 2.0
     end_s = max(duration - 3.0, duration * 0.7)
+
     filters = []
     
     # 1. Opening Hook — top, white text, black outline
@@ -99,38 +105,39 @@ def build_text_overlays(duration):
 
 def build_effects(bpm, duration):
     """
-    Beat-synced viral effects chain:
+    Smooth cinematic viral effects chain:
     
-    1. Chromatic Aberration — RGB channel split (constant glitch)
-    2. Screen Pumps — zoompan with beat-synced zoom spikes (sin^8)  
-    3. Camera Shake — crop position oscillation at 2x BPM
-    4. Motion Blur — tblend frame averaging
-    5. Noise/Grain — film grain + digital static
-    6. Color Grading — vintage + contrast + saturation
+    1. Subtle Chromatic Aberration — gentle RGB fringing
+    2. Slow Breathing Zoom — gradual drift in/out like a floating camera
+    3. Floating Camera Drift — ultra-low frequency position sway  
+    4. Dreamy Motion Blur — heavier blend for smooth flowing feel
+    5. Soft Film Grain — delicate texture
+    6. Color Grading — warm cinematic tones
     7. Text Overlays — hook + engagement + subscribe CTA
     """
-    bps = bpm / 60.0
-    # frames-per-beat for zoompan expression (uses frame number 'on')
-    fpb = 30.0 / bps
+    # Gentle slow breathing zoom: drifts from 1.0 to 1.04 and back
+    # Using very low frequency (one full cycle every ~8 seconds)
+    zoom = "1.0+0.04*sin(on/240*3.14159)"
 
-    # Zoom pump expression: sharp zoom spikes on every beat
-    pump = f"1.0+0.12*pow(abs(sin(on/{fpb:.4f}*3.14159)),8)"
+    # Floating camera drift: ultra-low frequency (0.15-0.25 Hz)
+    # Two layered sine waves at different frequencies for organic feel
+    drift_x = "6*sin(t*0.15*6.2832)+4*sin(t*0.37*6.2832)"
+    drift_y = "5*cos(t*0.19*6.2832)+3*cos(t*0.41*6.2832)"
 
     parts = [
-        # 1. Glitch: chromatic aberration (RGB channel split)
-        "rgbashift=rh=4:bh=-4:rv=2:bv=-2",
-        # 2. Screen pump: beat-synced zoom spikes via zoompan
-        f"zoompan=z='{pump}':d=1:x=iw/2-(iw/zoom/2):y=ih/2-(ih/zoom/2):s=1200x2134:fps=30",
-        # 3. Camera shake: position oscillation synced to 2x BPM
-        f"crop=1080:1920:(iw-1080)/2+15*sin(t*{bps*2:.4f}*3.14159):(ih-1920)/2+12*cos(t*{bps*2:.4f}*3.14159)",
-        # 4. Motion blur
-        "tblend=all_mode=average:all_opacity=0.3",
-        # 5. Noise / grain
-        "noise=alls=12:allf=t+u",
-        # 6. Color grading
-        "curves=vintage",
+        # 1. Subtle chromatic aberration (gentle fringing)
+        "rgbashift=rh=2:bh=-2:rv=1:bv=-1",
+        # 2. Slow breathing zoom via zoompan
+        f"zoompan=z='{zoom}':d=1:x=iw/2-(iw/zoom/2):y=ih/2-(ih/zoom/2):s=1200x2134:fps=30",
+        # 3. Floating camera drift (low-frequency position sway)
+        f"crop=1080:1920:(iw-1080)/2+{drift_x}:(ih-1920)/2+{drift_y}",
+        # 4. Dreamy motion blur (heavier blend for silky smoothness)
+        "tblend=all_mode=average:all_opacity=0.4",
+        # 5. Soft film grain
+        "noise=alls=6:allf=t+u",
+        # 6. Warm cinematic color grading
         "colorchannelmixer=rr=1.05:rg=0.02:rb=0.02:gg=1.0:bb=1.08",
-        "eq=contrast=1.2:saturation=1.35",
+        "eq=contrast=1.15:saturation=1.3:brightness=0.02",
         # 7. Text overlays
         build_text_overlays(duration),
     ]
