@@ -15,6 +15,24 @@ TARGET_CHANNEL = "-1003737951848"
 API_URL = "https://tele.alreadytaken.me"
 OUTPUT_DIR = f"output/{TARGET_CHANNEL}"
 LOG_FILE = "processed_videos.txt"
+PENDING_FILE = "pending_video.json"
+
+def get_pending_video():
+    if os.path.exists(PENDING_FILE):
+        try:
+            with open(PENDING_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    return None
+
+def set_pending_video(msg_id, caption):
+    with open(PENDING_FILE, "w") as f:
+        json.dump({"msg_id": msg_id, "caption": caption}, f)
+
+def clear_pending_video():
+    if os.path.exists(PENDING_FILE):
+        os.remove(PENDING_FILE)
 
 # Ensure directories exist
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -50,11 +68,18 @@ def download_file(channel_id, msg_id, save_path):
         print(f"❌ Download Error ({msg_id}): {e}")
     return False
 
-def process_standalone_video(channel_id, msg_id, caption):
-    """Process a standalone video (viralize + upload)."""
+def process_standalone_video(channel_id, msg_id, caption, cover_msg_id=None):
+    """Process a standalone video (viralize + upload) and optionally set a custom cover."""
     raw_path = os.path.join(OUTPUT_DIR, f"raw_video_{msg_id}.mp4")
     viral_path = os.path.join(OUTPUT_DIR, f"video_{msg_id}.mp4")
     upscale_path = os.path.join(OUTPUT_DIR, f"video_{msg_id}_upscaled.mp4")
+    
+    cover_path = None
+    if cover_msg_id:
+        cover_path = os.path.join(OUTPUT_DIR, f"cover_{cover_msg_id}.jpg")
+        if not download_file(channel_id, cover_msg_id, cover_path):
+            tlog(f"⚠️ Failed to download cover {cover_msg_id}, proceeding without custom cover.")
+            cover_path = None
 
     if not download_file(channel_id, msg_id, raw_path):
         return False
@@ -88,13 +113,16 @@ def process_standalone_video(channel_id, msg_id, caption):
     
     tlog(f"☁️ Uploading video {msg_id} to YouTube...")
     upload_cmd = ["uv", "run", "upload_to_youtube.py", "--video", upload_file]
+    if cover_path:
+        upload_cmd.extend(["--cover", cover_path])
+        
     upload_res = subprocess.run(upload_cmd, capture_output=True, text=True)
     
     if upload_res.returncode == 0:
         tlog(f"✅ Video {msg_id} uploaded successfully!")
         # Cleanup intermediate files
-        for f in [raw_path, viral_path, upscale_path]:
-            if os.path.exists(f) and f != upload_file:
+        for f in [raw_path, viral_path, upscale_path, cover_path]:
+            if f and os.path.exists(f) and f != upload_file:
                 try: os.remove(f)
                 except: pass
         return True
@@ -208,6 +236,8 @@ def main():
 
             tlog(f"📥 {len(new_messages)} new message(s) to process")
             
+            pending = get_pending_video()
+            
             for msg in new_messages:
                 msg_id = str(msg.get('msg_id', ''))
                 if not msg_id:
@@ -218,7 +248,18 @@ def main():
 
                 if m_type == 'video':
                     tlog(f"🎥 Video message {msg_id} detected.")
-                    if process_standalone_video(TARGET_CHANNEL, msg_id, caption):
+                    tlog(f"⏳ Please upload an image to use as the cover for video {msg_id}.")
+                    set_pending_video(msg_id, caption)
+                    pending = {"msg_id": msg_id, "caption": caption}
+                    mark_processed(msg_id)
+                elif m_type == 'photo':
+                    if pending:
+                        tlog(f"🖼️ Cover image {msg_id} detected for video {pending['msg_id']}.")
+                        if process_standalone_video(TARGET_CHANNEL, pending['msg_id'], pending['caption'], cover_msg_id=msg_id):
+                            clear_pending_video()
+                            pending = None
+                        mark_processed(msg_id)
+                    else:
                         mark_processed(msg_id)
                 else:
                     # Mark non-video as processed so we don't look at them again

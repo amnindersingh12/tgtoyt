@@ -281,7 +281,7 @@ def get_duration(video_path):
         return 0
 
 
-def upload_video(video_path, title, description, tags, privacy="public", delete_after=True, video_type="SHORT"):
+def upload_video(video_path, title, description, tags, privacy="private", delete_after=True, video_type="SHORT", cover_path=None):
     """Upload video with thumbnail to YouTube."""
     
     # Safety: Shorts must be under 60 seconds
@@ -329,8 +329,14 @@ def upload_video(video_path, title, description, tags, privacy="public", delete_
             print(f"\n✅ Uploaded! https://youtube.com/shorts/{video_id}")
             
             # Upload thumbnail
-            thumb_path = video_path.parent / f"{video_path.stem}_thumb.jpg"
-            if generate_thumbnail(video_path, thumb_path):
+            if cover_path and Path(cover_path).exists():
+                thumb_path = Path(cover_path)
+                thumbnail_ready = True
+            else:
+                thumb_path = video_path.parent / f"{video_path.stem}_thumb.jpg"
+                thumbnail_ready = generate_thumbnail(video_path, thumb_path)
+
+            if thumbnail_ready:
                 try:
                     youtube.thumbnails().set(
                         videoId=video_id,
@@ -340,7 +346,7 @@ def upload_video(video_path, title, description, tags, privacy="public", delete_
                 except Exception as e:
                     print(f"⚠️  Thumbnail upload failed (YouTube may require channel verification): {e}")
                 finally:
-                    if thumb_path.exists():
+                    if not cover_path and thumb_path.exists():
                         thumb_path.unlink()
             
             # Log and cleanup
@@ -362,8 +368,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", required=True)
     parser.add_argument("--type", choices=["SHORT", "FULL"], default="SHORT")
-    parser.add_argument("--privacy", default="public", choices=["public", "private", "unlisted"])
+    parser.add_argument("--privacy", default="private", choices=["public", "private", "unlisted"])
     parser.add_argument("--delete-after", action="store_true")
+    parser.add_argument("--cover", help="Path to custom cover image")
     args = parser.parse_args()
 
     v_path = Path(args.video)
@@ -372,7 +379,7 @@ def main():
         sys.exit(1)
 
     title, desc, tags = generate_metadata(v_path)
-    video_id = upload_video(v_path, title, desc, tags, args.privacy, args.delete_after, args.type)
+    video_id = upload_video(v_path, title, desc, tags, args.privacy, args.delete_after, args.type, args.cover)
     
     if video_id:
         print(f"\n🎉 Live at: https://youtube.com/shorts/{video_id}")
